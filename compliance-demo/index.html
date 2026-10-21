@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Teraminds Compliance Agent — prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap"
+    />
+    <link rel="stylesheet" href="hark.css" />
+    <link rel="stylesheet" href="hark-hero.css" />
+    <link rel="stylesheet" href="hark-charts.css" />
+    <style>
+      [hidden] { display: none !important; }
+      .x-app { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 8px; }
+      .x-app h1 { font: var(--type-heading); }
+      .x-app p { font: var(--type-small); color: var(--text-secondary); margin-top: 2px; }
+      .x-tabs { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; border-radius: var(--r-pill); background: var(--fill-segment); }
+      .x-tabs::-webkit-scrollbar { display: none; }
+      .x-tabs button { flex: none; padding: 8px 14px; border: 0; border-radius: var(--r-pill); background: none; font: var(--type-label); color: var(--text-secondary-on); cursor: pointer; white-space: nowrap; }
+      .x-tabs button:hover { color: var(--text-primary-on); }
+      .x-tabs button[aria-selected="true"] { background: var(--fill-primary-on); color: var(--text-primary); }
+      .x-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 24px; }
+      .x-row { cursor: pointer; }
+      .x-row:hover > * { background: var(--hover-wash); }
+      .x-row.is-done > * { color: var(--text-secondary); }
+      .x-modal { width: min(760px, calc(100vw - 2 * var(--gutter))); max-height: calc(100vh - 48px); margin: auto; padding: 24px; border: 1px solid var(--stroke-primary); border-radius: var(--r-l); background: var(--fill-primary-on); color: var(--text-primary); box-shadow: var(--hark-shadow); }
+      .x-modal::backdrop { background: rgb(22 31 57 / 0.45); }
+      .x-modal > * + * { margin-top: 16px; }
+      .x-modal h3 { font: var(--type-heading); padding-right: 56px; }
+      .x-close { float: right; }
+      .x-calc { padding: 16px 16px 16px 36px; border-radius: var(--r-m); background: var(--fill-tertiary); font: var(--size-caption)/1.6 "Geist Mono", ui-monospace, monospace; }
+      .x-calc li + li { margin-top: 4px; }
+      .x-modal textarea { display: block; width: 100%; min-height: 300px; padding: 12px; border: 1px solid var(--stroke-primary); border-radius: var(--r-s); background: var(--fill-tertiary); color: var(--text-primary); font: var(--size-caption)/1.55 "Geist Mono", ui-monospace, monospace; resize: vertical; white-space: pre; }
+      .x-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font: var(--type-label); }
+      .x-field input, .x-field select { min-height: var(--tap); flex: 1 1 220px; padding: 0 12px; border: 1px solid var(--stroke-primary); border-radius: var(--r-s); background: var(--fill-primary-on); color: var(--text-primary); font: var(--type-body); }
+      button.btn { cursor: pointer; font: inherit; }
+      button.link { min-height: var(--tap); padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+      .x-modal textarea.x-short { min-height: 150px; }
+      .x-modal ul.x-list, .x-errs ul { padding-left: 20px; list-style: disc; font: var(--type-small); }
+      .x-list li + li, .x-errs li + li { margin-top: 4px; }
+      .x-rep > * + * { margin-top: 24px; }
+      .x-rep h2 { font: var(--type-title); }
+      .x-print { display: none; }
+      @media (max-width: 599px) { .x-tabs button { min-height: var(--tap); } .x-modal { padding: 18px; } }
+      @media print {
+        .page, .x-modal { display: none !important; }
+        .x-print { display: block; color: #000; color-scheme: light; background: #fff; }
+        .x-print .table-wrap { overflow: visible; }
+        .x-print tr, .x-print .stat, .x-print .aside { break-inside: avoid; }
+        .x-print pre { font: 11px/1.5 "Geist Mono", ui-monospace, monospace; white-space: pre-wrap; break-after: page; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="top">
+      <div class="x-app">
+        <div>
+          <h1>Teraminds Compliance Agent — prototype</h1>
+          <p>Indian payroll labour-law checker · payroll month <strong>October 2026</strong></p>
+        </div>
+        <div class="links"><span class="chip" id="data-chip">Data: demo (12 employees)</span><span class="chip">Prototype · illustrative · verify rates before filing</span></div>
+      </div>
+      <header class="nav glass">
+        <div class="x-tabs" role="tablist" aria-label="Views">
+          <button role="tab" id="t-dash" aria-controls="dash" aria-selected="true">Dashboard</button>
+          <button role="tab" id="t-find" aria-controls="find" aria-selected="false">Findings</button>
+          <button role="tab" id="t-files" aria-controls="files" aria-selected="false">Remittance files</button>
+          <button role="tab" id="t-rules" aria-controls="rules" aria-selected="false">Rules</button>
+        </div>
+        <button class="theme-btn" id="theme-btn" type="button" aria-label="Switch to dark theme"></button>
+      </header>
+
+      <main class="main">
+        <section class="section" id="start" aria-labelledby="start-h">
+          <div class="head">
+            <p class="head__eyebrow">Get started</p>
+            <h2 id="start-h">Check your own payroll in three steps.</h2>
+            <p class="head__sub">Files are read inside your browser. Your data never leaves this page; nothing is sent to a server.</p>
+          </div>
+          <div class="cards">
+            <div><h3>1 · Download template</h3><p>17 columns, three sample rows and a field guide.</p><div class="links"><button class="btn" type="button" id="tpl">Download template</button></div></div>
+            <div><h3>2 · Upload your payroll CSV</h3><p>Bad rows are listed and skipped; every check re-runs on the rest.</p><div class="links"><button class="btn" type="button" id="pick">Upload CSV</button><button class="btn" type="button" id="paste">Paste CSV</button></div><input type="file" id="csv-file" accept=".csv,text/csv" hidden aria-label="Payroll CSV file" /></div>
+            <div><h3>3 · Generate compliance report</h3><p>Score, money at risk and every finding with its citation. Print or save as PDF.</p><div class="links"><button class="btn" type="button" id="report">Generate report</button></div></div>
+          </div>
+          <p class="fineprint">Just looking? <button class="link" type="button" id="demo">Use demo data</button> to reload the built-in 12 employees.</p>
+          <div id="load-msg" aria-live="polite"></div>
+        </section>
+
+        <section class="section" id="dash" role="tabpanel" aria-labelledby="t-dash">
+          <div class="head">
+            <p class="head__eyebrow" id="run-at">Running checks…</p>
+            <h2 id="dash-title">Checking October 2026 payroll.</h2>
+            <p class="head__sub">7 checks per employee across minimum wages, the wage definition, EPF, ESI and professional tax.</p>
+          </div>
+          <section class="stats" id="stats-main"></section>
+          <section class="stats" id="stats-sev"></section>
+          <div class="x-pair">
+            <div class="breakdown" id="risk"></div>
+            <aside class="callout" id="next" aria-label="Next step"></aside>
+          </div>
+          <div class="x-pair">
+            <figure class="chart">
+              <figcaption class="chart__cap">Exposure by statutory area<small>Open findings, money at risk in ₹</small></figcaption>
+              <div class="chart__canvas"><canvas id="c-area" role="img" aria-label="Money at risk by statutory area"></canvas></div>
+            </figure>
+            <figure class="chart">
+              <figcaption class="chart__cap">Exposure by state<small>Open findings, money at risk in ₹</small></figcaption>
+              <div class="chart__canvas"><canvas id="c-state" role="img" aria-label="Money at risk by state"></canvas></div>
+            </figure>
+          </div>
+          <div class="links"><button class="btn" type="button" id="rerun">Re-run checks</button><button class="btn" type="button" data-go="t-find">Review findings</button></div>
+        </section>
+
+        <section class="section" id="find" role="tabpanel" aria-labelledby="t-find" hidden>
+          <div class="head">
+            <h2>Findings, worst first.</h2>
+            <p class="head__sub">Select a row for the calculation, the citation and the Resolve button.</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th scope="col">Employee</th><th scope="col">Check</th><th scope="col">Severity</th><th scope="col">Exposure</th><th scope="col">Status</th></tr>
+              </thead>
+              <tbody id="f-body"></tbody>
+            </table>
+          </div>
+          <div>
+            <h3 class="head__eyebrow">Audit log</h3>
+            <ol class="timeline" id="audit"></ol>
+          </div>
+        </section>
+
+        <section class="section" id="files" role="tabpanel" aria-labelledby="t-files" hidden>
+          <div class="head">
+            <h2>Remittance files for October 2026.</h2>
+            <p class="head__sub">Built from corrected statutory wages. Files open in a window with a Copy button.</p>
+          </div>
+          <p class="fineprint"><span class="chip">Full version</span> Remittance files are a full-platform feature, open here as a preview on your data.</p>
+          <div id="files-body"></div>
+        </section>
+
+        <section class="section" id="rules" role="tabpanel" aria-labelledby="t-rules" hidden>
+          <div class="head">
+            <h2>The rules each check applies.</h2>
+            <p class="head__sub">Rates are illustrative. Verify against the current gazette before filing.</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">Rule</th><th scope="col">What it checks</th><th scope="col">Severity</th><th scope="col">Effective</th><th scope="col">Source</th></tr></thead>
+              <tbody id="r-body"></tbody>
+            </table>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <caption>Minimum monthly wages (₹), compared against basic + DA</caption>
+              <thead><tr><th scope="col">State and zone</th><th scope="col">Unskilled</th><th scope="col">Semi-skilled</th><th scope="col">Skilled</th><th scope="col">Highly skilled</th></tr></thead>
+              <tbody id="mw-body"></tbody>
+            </table>
+          </div>
+          <div class="cards">
+            <div><h3>Maharashtra PT</h3><ul><li>Men: up to ₹7,500 nil; ₹7,501–10,000 ₹175; above ₹200</li><li>Women: up to ₹25,000 nil; above ₹200</li></ul><p class="fineprint">Maharashtra State Tax on Professions, Trades, Callings and Employments Act, 1975, Sch. I</p></div>
+            <div><h3>Karnataka PT</h3><ul><li>Below ₹25,000 nil</li><li>₹25,000 and above ₹200</li></ul><p class="fineprint">Karnataka Tax on Professions, Trades, Callings and Employments Act, 1976</p></div>
+            <div><h3>Haryana PT</h3><p>No professional tax is levied.</p></div>
+            <div><h3>Exposure</h3><ul><li>Principal: the unpaid or wrongly charged amount</li><li>EPF and ESI: interest at 12% a year for one month</li><li>Minimum wages: up to 10× the shortfall, at the authority's discretion</li></ul></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <p>Your data stays in your browser. Not legal advice; verify every rate before filing.</p>
+        <a class="badge" href="https://hark.com/" target="_blank" rel="noopener"><span class="hark-mark"></span><span>built by hark</span></a>
+      </footer>
+    </div>
+
+    <dialog class="x-modal" id="modal" aria-labelledby="m-title">
+      <button class="btn x-close" type="button" id="m-close">Close</button>
+      <div id="m-body"></div>
+    </dialog>
+    <div class="x-print" id="print-area"></div>
+
+    <script type="application/json" id="employees">
+      [
+        {"id":"E001","name":"Ramesh Kumar","gender":"M","state":"Haryana","zone":"All","skill":"Unskilled","uan":"100912345601","ip":"1013456701","basic":9000,"da":5200,"special":0,"hra":1000,"conveyance":500,"overtime":0,"pf_deducted":1704,"esi_deducted":118,"pt_deducted":0},
+        {"id":"E002","name":"Sunita Devi","gender":"F","state":"Haryana","zone":"All","skill":"Semi-skilled","uan":"100912345602","ip":"1013456702","basic":12000,"da":5000,"special":1000,"hra":2000,"conveyance":500,"overtime":0,"pf_deducted":2160,"esi_deducted":154,"pt_deducted":0},
+        {"id":"E003","name":"Vikram Singh","gender":"M","state":"Haryana","zone":"All","skill":"Skilled","uan":"100912345603","ip":"1013456703","basic":13000,"da":5600,"special":0,"hra":700,"conveyance":200,"overtime":0,"pf_deducted":2232,"esi_deducted":0,"pt_deducted":0},
+        {"id":"E004","name":"Anjali Sharma","gender":"F","state":"Haryana","zone":"All","skill":"Highly skilled","uan":"100912345604","ip":"","basic":30000,"da":8000,"special":10000,"hra":12000,"conveyance":2000,"overtime":0,"pf_deducted":3000,"esi_deducted":0,"pt_deducted":0},
+        {"id":"E005","name":"Rohit Yadav","gender":"M","state":"Haryana","zone":"All","skill":"Skilled","uan":"100912345605","ip":"","basic":20000,"da":0,"special":0,"hra":16000,"conveyance":4000,"overtime":4000,"pf_deducted":2400,"esi_deducted":0,"pt_deducted":0},
+        {"id":"E006","name":"Priya Patil","gender":"F","state":"Maharashtra","zone":"Zone I","skill":"Skilled","uan":"100912345606","ip":"1013456706","basic":12000,"da":4000,"special":1000,"hra":4000,"conveyance":1000,"overtime":0,"pf_deducted":2040,"esi_deducted":128,"pt_deducted":200},
+        {"id":"E007","name":"Sachin Jadhav","gender":"M","state":"Maharashtra","zone":"Zone I","skill":"Skilled","uan":"100912345607","ip":"","basic":19000,"da":0,"special":0,"hra":12000,"conveyance":3000,"overtime":9000,"pf_deducted":2280,"esi_deducted":0,"pt_deducted":200},
+        {"id":"E008","name":"Neha Kulkarni","gender":"F","state":"Maharashtra","zone":"Zone I","skill":"Semi-skilled","uan":"100912345608","ip":"","basic":14000,"da":4000,"special":4000,"hra":5000,"conveyance":1000,"overtime":0,"pf_deducted":1800,"esi_deducted":0,"pt_deducted":200},
+        {"id":"E009","name":"Arjun Shinde","gender":"M","state":"Maharashtra","zone":"Zone I","skill":"Unskilled","uan":"100912345609","ip":"1013456709","basic":10000,"da":4500,"special":0,"hra":2000,"conveyance":500,"overtime":0,"pf_deducted":1740,"esi_deducted":128,"pt_deducted":200},
+        {"id":"E010","name":"Manjunath Gowda","gender":"M","state":"Karnataka","zone":"Zone 1","skill":"Semi-skilled","uan":"100912345610","ip":"","basic":18000,"da":7000,"special":0,"hra":6000,"conveyance":1500,"overtime":0,"pf_deducted":3000,"esi_deducted":0,"pt_deducted":200},
+        {"id":"E011","name":"Kavya Reddy","gender":"F","state":"Karnataka","zone":"Zone 1","skill":"Skilled","uan":"100912345611","ip":"","basic":24000,"da":6500,"special":2000,"hra":10000,"conveyance":2000,"overtime":0,"pf_deducted":3000,"esi_deducted":0,"pt_deducted":200},
+        {"id":"E012","name":"Mohammed Irfan","gender":"M","state":"Karnataka","zone":"Zone 1","skill":"Highly skilled","uan":"100912345612","ip":"","basic":28000,"da":6000,"special":6000,"hra":14000,"conveyance":2000,"overtime":1500,"pf_deducted":3000,"esi_deducted":0,"pt_deducted":200}
+      ]
+    </script>
+
+    <script src="hark.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+    <script src="datalabels.js"></script>
+    <script src="hark-charts.js"></script>
+    <script>
+      (function () {
+        "use strict";
+        var MONTH = "October 2026";
+        var DEMO = Hark.data("employees"), EMP = DEMO, DATA = "demo", COMPANY = "Your Company";
+        var COLS = "emp_id,name,gender,state,zone,skill,uan,esic_ip,basic,da,special,hra,conveyance,overtime,pf_deducted,esi_deducted,pt_deducted".split(",");
+        var NUMS = COLS.slice(8);
+        var SKILL = { "unskilled": "Unskilled", "semi-skilled": "Semi-skilled", "skilled": "Skilled", "highly-skilled": "Highly skilled" };
+        var TEMPLATE = [COLS.join(","),
+          "S001,Asha Rani,F,Haryana,1,unskilled,100900000001,1013400001,10000,4500,0,1500,500,0,1740,124,0",
+          "S002,Rahul Pawar,M,Maharashtra,1,skilled,100900000002,,15000,0,0,9000,2000,4000,1800,0,200",
+          "S003,Deepa Rao,F,Karnataka,1,semi-skilled,,,20000,6000,1000,8000,1500,0,3000,0,200"].join("\n");
+        var MW = {
+          Haryana: { label: "Haryana (all zones)", eff: "1 Apr 2026", rates: { "Unskilled": 15220.71, "Semi-skilled": 16780.74, "Skilled": 18500.81, "Highly skilled": 19425.85 }, src: "Haryana Labour Dept. notification, minimum wages w.e.f. 1 Apr 2026" },
+          Maharashtra: { label: "Maharashtra Zone I", eff: "1 Jul–31 Dec 2026", rates: { "Unskilled": 14155, "Semi-skilled": 14990, "Skilled": 15766 }, src: "Maharashtra Industries, Energy & Labour Dept., VDA notification Jul–Dec 2026" },
+          Karnataka: { label: "Karnataka Zone 1", eff: "22 May 2026", rates: { "Unskilled": 24407.23, "Semi-skilled": 26744.87, "Skilled": 29316.27, "Highly skilled": 32144.82 }, src: "Karnataka Labour Dept. notification w.e.f. 22 May 2026" }
+        };
+        var RULES = [
+          { id: "MW", name: "Minimum wage shortfall", area: "Minimum wages", sev: "Critical", what: "Basic + DA against the notified rate for state, zone and skill", eff: "Per state, see below", src: "Code on Wages, 2019 s.6 and s.9; state notifications" },
+          { id: "R50", name: "50% rule breach", area: "Wage definition", sev: "Critical", what: "Wages = basic + DA + special. If HRA + conveyance + overtime exceed 50% of total pay, the excess is added back to wages; PF must follow", eff: "21 Nov 2025", src: "Code on Wages, 2019 s.2(y), proviso" },
+          { id: "PF", name: "PF under-deduction", area: "EPF", sev: "Critical", what: "12% employee + 12% employer on wages capped at ₹25,000; employer split EPS 8.33% / EPF 3.67%", eff: "17 Sep 2026", src: "EPF & MP Act, 1952 s.6; Gazette S.O. 5109(E)" },
+          { id: "OLD", name: "Old ₹15,000 ceiling", area: "EPF", sev: "High", what: "PF still deducted on ₹15,000 (₹1,800) when PF wages exceed it", eff: "17 Sep 2026", src: "Gazette S.O. 5109(E), revised wage ceiling ₹25,000" },
+          { id: "ESI", name: "ESI missed", area: "ESI", sev: "Critical", what: "0.75% employee + 3.25% employer, rounded up, when wages are ₹21,000 or less", eff: "1 Jan 2017 (ceiling)", src: "ESI Act, 1948 s.39–40; ESI (Central) Rules r.51" },
+          { id: "PT", name: "Professional tax wrong", area: "Professional tax", sev: "Medium", what: "PT slab for state and gender against the amount deducted", eff: "1 Apr 2023 (MH slabs)", src: "Maharashtra PT Act 1975 Sch. I; Karnataka PT Act 1976; Haryana: no PT" },
+          { id: "UAN", name: "Missing UAN", area: "EPF", sev: "High", what: "Every PF member needs a 12-digit UAN for the ECR", eff: "1 Oct 2014", src: "EPFO circular on UAN; EPF Scheme 1952 para 36" }
+        ];
+        var SEV_ORDER = { Critical: 0, High: 1, Medium: 2 };
+        var AREAS = ["Minimum wages", "Wage definition", "EPF", "ESI", "Professional tax"];
+        var STATES = ["Haryana", "Maharashtra", "Karnataka"];
+        var findings = [], audit = [], charts = {};
+
+        var $ = function (id) { return document.getElementById(id); };
+        var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+        var inr = function (n, dp) { return "₹" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 }); };
+        var r2 = function (n) { return Math.round(n * 100) / 100; };
+        var ruleOf = function (id) { return RULES.filter(function (r) { return r.id === id; })[0]; };
+
+        function calc(e) {
+          var total = e.basic + e.da + e.special + e.hra + e.conveyance + e.overtime;
+          var base = e.basic + e.da + e.special, excl = e.hra + e.conveyance + e.overtime;
+          var excess = Math.max(0, excl - total / 2);
+          var wages = base + excess, pfWages = Math.min(wages, 25000);
+          var ee = Math.round(pfWages * 0.12), eps = Math.round(pfWages * 0.0833);
+          var esiApp = total <= 21000;
+          return { total: total, base: base, excl: excl, excess: excess, wages: wages, pfWages: pfWages, ee: ee, eps: eps, er: ee - eps,
+            esiApp: esiApp, esiEe: esiApp ? Math.ceil(total * 0.0075) : 0, esiEr: esiApp ? Math.ceil(total * 0.0325) : 0, pt: ptDue(e, total) };
+        }
+        function ptDue(e, g) {
+          if (e.state === "Maharashtra") return e.gender === "F" ? (g <= 25000 ? 0 : 200) : (g <= 7500 ? 0 : g <= 10000 ? 175 : 200);
+          if (e.state === "Karnataka") return g < 25000 ? 0 : 200;
+          return 0;
+        }
+        function add(e, rule, text, steps, principal, interest, upto) {
+          var r = ruleOf(rule);
+          findings.push({ key: e.id + "-" + rule, e: e, rule: r, text: text, steps: steps, principal: r2(principal), interest: r2(interest || 0), upto: r2(upto || 0), resolved: false });
+        }
+        function pfInterest(p) { return p * 0.12 / 12; }
+
+        function runChecks() {
+          findings = [];
+          EMP.forEach(function (e) {
+            var c = calc(e), steps;
+            var min = (MW[e.state] || {}).rates && MW[e.state].rates[e.skill];
+            var bd = e.basic + e.da;
+            if (min && bd < min) {
+              var short = min - bd;
+              add(e, "MW", e.skill + " rate in " + MW[e.state].label + " is " + inr(min, 2) + "; basic + DA is " + inr(bd) + ".",
+                ["Basic + DA = " + inr(e.basic) + " + " + inr(e.da) + " = " + inr(bd), "Notified " + e.skill.toLowerCase() + " rate = " + inr(min, 2) + " (w.e.f. " + MW[e.state].eff + ")", "Shortfall = " + inr(min, 2) + " − " + inr(bd) + " = " + inr(short, 2), "Up to 10× shortfall (discretionary) = " + inr(short * 10, 2)],
+                short, 0, short * 10);
+            }
+            if (!e.uan) add(e, "UAN", "No UAN on record, so contributions cannot go into the ECR.", ["UAN field is empty", "Generate UAN on the EPFO employer portal before filing"], 0);
+            var pfShort = Math.max(0, c.ee - e.pf_deducted);
+            var pfSteps = ["Total pay = " + inr(c.total), "Basic + DA + special = " + inr(c.base) + "; HRA + conveyance + OT = " + inr(c.excl)];
+            if (c.excess > 0 && pfShort > 0) {
+              var p = pfShort * 2;
+              add(e, "R50", "Exclusions are " + Math.round(c.excl / c.total * 100) + "% of pay, so " + inr(c.excess) + " is added back to wages. PF was taken on basic only.",
+                pfSteps.concat(["50% of total = " + inr(c.total / 2) + "; excess = " + inr(c.excl) + " − " + inr(c.total / 2) + " = " + inr(c.excess), "Statutory wages = " + inr(c.base) + " + " + inr(c.excess) + " = " + inr(c.wages), "PF due 12% × " + inr(c.pfWages) + " = " + inr(c.ee) + "; deducted " + inr(e.pf_deducted), "Shortfall " + inr(pfShort) + " employee + " + inr(pfShort) + " employer = " + inr(p), "Interest 12% p.a. × 1 month = " + inr(pfInterest(p), 2)]),
+                p, pfInterest(p));
+            } else if (pfShort > 0) {
+              var p2 = pfShort * 2, old = e.pf_deducted === 1800 && c.pfWages > 15000;
+              add(e, old ? "OLD" : "PF", old ? "PF wages are " + inr(c.wages) + " but PF is still taken on the old ₹15,000 ceiling." : "PF deducted is below 12% of PF wages.",
+                pfSteps.concat(["Statutory wages = " + inr(c.wages) + "; capped at ₹25,000 → " + inr(c.pfWages), "PF due 12% × " + inr(c.pfWages) + " = " + inr(c.ee) + "; deducted " + inr(e.pf_deducted) + (old ? " (12% × ₹15,000)" : ""), "Shortfall " + inr(pfShort) + " employee + " + inr(pfShort) + " employer = " + inr(p2), "Interest 12% p.a. × 1 month = " + inr(pfInterest(p2), 2)]),
+                p2, pfInterest(p2));
+            }
+            if (c.esiApp && e.esi_deducted < c.esiEe) {
+              var p3 = c.esiEe - e.esi_deducted + c.esiEr;
+              add(e, "ESI", "Wages of " + inr(c.total) + " are within the ₹21,000 ESI limit, but no ESI was deducted.",
+                ["Gross wages = " + inr(c.total) + " ≤ ₹21,000 → covered", "Employee 0.75% = " + inr(c.total * 0.0075, 2) + " → rounded up " + inr(c.esiEe), "Employer 3.25% = " + inr(c.total * 0.0325, 2) + " → rounded up " + inr(c.esiEr), "Deducted " + inr(e.esi_deducted) + "; unpaid " + inr(p3), "Interest 12% p.a. × 1 month = " + inr(pfInterest(p3), 2)],
+                p3, pfInterest(p3));
+            }
+            if (e.pt_deducted !== c.pt) {
+              add(e, "PT", (e.gender === "F" ? "Woman" : "Man") + " in " + e.state + " with gross " + inr(c.total) + ": PT due is " + inr(c.pt) + ", charged " + inr(e.pt_deducted) + ".",
+                ["Gross = " + inr(c.total), e.state + (e.state === "Maharashtra" ? (e.gender === "F" ? " women: ≤ ₹25,000 nil, else ₹200" : " men: ≤ ₹7,500 nil; ₹7,501–10,000 ₹175; above ₹200") : e.state === "Karnataka" ? ": < ₹25,000 nil, else ₹200" : ": no PT"), "Due " + inr(c.pt) + "; charged " + inr(e.pt_deducted) + "; difference " + inr(Math.abs(e.pt_deducted - c.pt)) + (e.pt_deducted > c.pt ? " to refund" : " to recover")],
+                Math.abs(e.pt_deducted - c.pt));
+            }
+          });
+          findings.sort(function (a, b) { return SEV_ORDER[a.rule.sev] - SEV_ORDER[b.rule.sev] || (b.principal + b.upto) - (a.principal + a.upto); });
+          findings.forEach(function (f) { if (audit.some(function (a) { return a.key === f.key; })) f.resolved = true; });
+          $("run-at").textContent = "Last run " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) + " · payroll " + MONTH;
+          render();
+        }
+        var risk = function (f) { return f.principal + f.interest + f.upto; };
+        var open = function () { return findings.filter(function (f) { return !f.resolved; }); };
+        var sum = function (a, k) { return a.reduce(function (s, f) { return s + (typeof k === "function" ? k(f) : f[k]); }, 0); };
+
+        function render() { renderDash(); renderFindings(); renderFiles(); }
+
+        function renderDash() {
+          var o = open(), bad = {};
+          o.forEach(function (f) { bad[f.e.id] = 1; });
+          var clean = EMP.length - Object.keys(bad).length, score = Math.round(clean / EMP.length * 100);
+          var crit = o.filter(function (f) { return f.rule.sev === "Critical"; }).length;
+          $("dash-title").textContent = o.length ? o.length + " open findings across " + Object.keys(bad).length + " employees." : "All findings resolved. Files are ready.";
+          $("stats-main").innerHTML = stat(score + "%", "Compliance score · " + clean + " of " + EMP.length + " employees clean") + stat(inr(Math.round(sum(o, risk))), "Money at risk") + stat(inr(Math.round(sum(o, "principal"))), "Principal to correct");
+          $("stats-sev").innerHTML = ["Critical", "High", "Medium"].map(function (s) { return stat(o.filter(function (f) { return f.rule.sev === s; }).length, s); }).join("") + stat(audit.length, "Resolved");
+          $("risk").innerHTML = riskDL(o) + '<p class="fineprint">Exposure for ' + MONTH + " only. Illustrative; verify rates before filing.</p>";
+          $("next").innerHTML = crit
+            ? '<p class="callout__head">Next step</p><p class="callout__lead"><strong>Resolve ' + crit + " critical finding" + (crit > 1 ? "s" : "") + ".</strong> Remittance files stay locked until every critical finding is fixed.</p><button class=\"btn\" type=\"button\" data-go=\"t-find\">Open findings</button>"
+            : '<p class="callout__head">Next step</p><p class="callout__lead"><strong>Generate the remittance files.</strong> No critical findings are open' + (o.length ? "; " + o.length + " lower-severity item" + (o.length > 1 ? "s" : "") + " remain." : ".") + '</p><button class="btn" type="button" data-go="t-files">Remittance files</button>';
+          drawChart("c-area", AREAS, AREAS.map(function (a) { return Math.round(sum(o.filter(function (f) { return f.rule.area === a; }), risk)); }));
+          drawChart("c-state", STATES, STATES.map(function (s) { return Math.round(sum(o.filter(function (f) { return f.e.state === s; }), risk)); }));
+        }
+        function riskDL(o) {
+          return "<dl>" + row("Principal", "Unpaid wages, PF, ESI, wrong PT", sum(o, "principal")) + row("Interest", "PF and ESI, 12% p.a. for 1 month", sum(o, "interest")) + row("Up to (discretionary)", "Minimum wages, up to 10× shortfall", sum(o, "upto")) +
+            '<div class="row row--total"><dt>Money at risk</dt><dd>' + inr(Math.round(sum(o, risk))) + "</dd></div></dl>";
+        }
+        function stat(fig, label) { return '<div class="stat"><span class="stat__fig">' + fig + '</span><span class="stat__label">' + esc(label) + "</span></div>"; }
+        function row(l, s, v) { return '<div class="row"><dt>' + l + " <small>" + s + "</small></dt><dd>" + inr(Math.round(v)) + "</dd></div>"; }
+
+        function drawChart(id, labels, data) {
+          var cv = $(id);
+          cv.setAttribute("aria-label", labels.map(function (l, i) { return l + " " + inr(data[i]); }).join(", "));
+          if (charts[id]) { charts[id].data.datasets[0].data = data; charts[id].update(); return; }
+          if (!window.Chart) return;
+          charts[id] = new Chart(cv, {
+            type: "bar",
+            data: { labels: labels, datasets: [{ label: "Money at risk", data: data }] },
+            options: {
+              indexAxis: "y",
+              scales: { x: { ticks: { callback: function (v) { return inr(v); } } } },
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (ctx) { return inr(ctx.raw); } } },
+                datalabels: Object.assign({}, Hark.labels.values, { formatter: function (v) { return v ? inr(v) : ""; } }) }
+            }
+          });
+        }
+
+        function chip(f) { return f.resolved ? '<span class="chip">Resolved</span>' : f.rule.sev === "Critical" ? '<span class="chip chip--solid">Fix now</span>' : '<span class="chip">Open</span>'; }
+        function renderFindings() {
+          $("f-body").innerHTML = findings.length ? findings.map(function (f, i) {
+            return '<tr class="x-row' + (f.resolved ? " is-done" : f.rule.sev === "Critical" ? " is-highlight" : "") + '" tabindex="0" data-i="' + i + '"><th scope="row">' + esc(f.e.name) + "<small>" + f.e.id + " · " + f.e.state + "</small></th>" +
+              '<td data-label="Check">' + f.rule.name + "<small>" + esc(f.text) + '</small></td><td data-label="Severity">' + f.rule.sev + '</td><td class="num" data-label="Exposure">' + inr(Math.round(risk(f))) + (f.upto ? "<small>incl. up to " + inr(Math.round(f.upto)) + "</small>" : "") + '</td><td data-label="Status">' + chip(f) + "</td></tr>";
+          }).join("") : '<tr><td colspan="5">No findings.</td></tr>';
+          $("audit").innerHTML = audit.length ? audit.slice().reverse().map(function (a) {
+            return '<li><p class="timeline__when">' + a.at + '</p><div class="timeline__what">' + esc(a.text) + "</div></li>";
+          }).join("") : '<li><p class="timeline__when">—</p><div class="timeline__what">Nothing resolved yet.</div></li>';
+        }
+
+        function openDetail(i) {
+          var f = findings[i];
+          showModal('<p class="head__eyebrow">' + f.rule.sev + " · " + f.rule.area + "</p><h3 id=\"m-title\">" + f.rule.name + ": " + esc(f.e.name) + "</h3>" +
+            "<p>" + esc(f.e.id + " · " + f.e.state + " " + f.e.zone + " · " + f.e.skill) + "</p><p>" + esc(f.text) + "</p>" +
+            '<ol class="x-calc">' + f.steps.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ol>" +
+            '<div class="breakdown"><dl>' + row("Principal", "Amount to correct", f.principal) + (f.interest ? row("Interest", "12% p.a., 1 month", f.interest) : "") + (f.upto ? row("Up to", "Discretionary, 10× shortfall", f.upto) : "") +
+            '<div class="row row--total"><dt>Exposure</dt><dd>' + inr(Math.round(risk(f))) + "</dd></div></dl></div>" +
+            '<p class="fineprint">Source: ' + esc(f.rule.src) + " · effective " + esc(f.rule.eff) + "</p>" +
+            '<div class="links">' + (f.resolved ? '<span class="chip">Resolved</span>' : '<button class="btn" type="button" id="resolve" data-i="' + i + '">Resolve</button>') + "</div>");
+        }
+        function resolve(i) {
+          var f = findings[i];
+          f.resolved = true;
+          audit.push({ key: f.key, at: new Date().toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }), text: f.rule.name + " resolved for " + f.e.name + " (" + f.e.id + "). Correction of " + inr(Math.round(f.principal)) + " applied to " + MONTH + " payroll." });
+          $("modal").close();
+          render();
+        }
+
+        function ecrRows() {
+          return EMP.filter(function (e) { return e.uan; }).map(function (e) {
+            var c = calc(e);
+            return [e.uan, e.name, c.total, c.pfWages, c.pfWages, c.pfWages, c.ee, c.eps, c.er, 0, 0].join("#~#");
+          });
+        }
+        function esicRows() {
+          return ["IP Number,IP Name,No of Days,Total Monthly Wages"].concat(EMP.filter(function (e) { return calc(e).esiApp; }).map(function (e) {
+            return [e.ip || "", '"' + e.name + '"', 26, calc(e).total].join(",");
+          }));
+        }
+        function formV(e) {
+          var c = calc(e), L = function (k, v) { return (k + "                              ").slice(0, 30) + v; };
+          return ["FORM V — WAGE SLIP", "Teraminds · Wage period: " + MONTH, "", L("Employee", e.name + " (" + e.id + ")"), L("Gender / State", (e.gender === "F" ? "Female" : "Male") + " / " + e.state + " " + e.zone), L("Skill", e.skill), L("UAN", e.uan || "—"), L("Days worked", "26"), "",
+            "EARNINGS", L("Basic", inr(e.basic)), L("Dearness allowance", inr(e.da)), L("Special allowance", inr(e.special)), L("HRA", inr(e.hra)), L("Conveyance", inr(e.conveyance)), L("Overtime", inr(e.overtime)), L("Gross earnings", inr(c.total)), "",
+            L("Statutory wages s.2(y)", inr(c.wages)), "",
+            "DEDUCTIONS", L("EPF (12% of " + inr(c.pfWages) + ")", inr(c.ee)), L("ESI (0.75%)", inr(c.esiEe)), L("Professional tax", inr(c.pt)), L("Total deductions", inr(c.ee + c.esiEe + c.pt)), "",
+            L("NET PAY", inr(c.total - c.ee - c.esiEe - c.pt)), "", L("Employer EPF / EPS", inr(c.er) + " / " + inr(c.eps)), L("Employer ESI (3.25%)", inr(c.esiEr)), "", "Prototype · illustrative · verify rates before filing"].join("\n");
+        }
+
+        function renderFiles() {
+          var crit = open().filter(function (f) { return f.rule.sev === "Critical"; });
+          if (crit.length) {
+            $("files-body").innerHTML = '<aside class="callout" aria-label="Locked"><p class="callout__head">Locked</p><p class="callout__lead"><strong>' + crit.length + " critical finding" + (crit.length > 1 ? "s are" : " is") + " still open.</strong> Filing now would remit wrong PF and ESI amounts. Resolve them to unlock the files.</p>" +
+              '<ul class="checklist">' + crit.map(function (f) { return '<li><span class="checklist__item">' + esc(f.e.name) + " <small>" + f.rule.name + '</small></span><span class="chip chip--solid">Fix now</span></li>'; }).join("") + '</ul><button class="btn" type="button" data-go="t-find">Open findings</button></aside>';
+            return;
+          }
+          $("files-body").innerHTML = '<div class="cards">' +
+            '<div><h3>EPF ECR</h3><p>' + ecrRows().length + " members, fields joined with #~#: UAN, name, gross, EPF, EPS and EDLI wages, EE share, EPS, ER share, NCP days, refund.</p><div class=\"links\"><button class=\"btn\" type=\"button\" data-file=\"ecr\">Open ECR text</button></div></div>" +
+            '<div><h3>ESIC monthly CSV</h3><p>' + (esicRows().length - 1) + ' covered employees: IP number, name, 26 days, wages.</p><div class="links"><button class="btn" type="button" data-file="esic">Open ESIC CSV</button></div></div>' +
+            '<div><h3>Form V wage slips</h3><p>One printable slip per employee, from corrected statutory wages.</p><label class="x-field">Employee <select id="slip-emp">' + EMP.map(function (e) { return '<option value="' + e.id + '">' + esc(e.name) + " (" + e.id + ")</option>"; }).join("") + '</select></label><div class="links"><button class="btn" type="button" data-file="slip">Open slip</button><button class="btn" type="button" id="print-all">Print all slips</button></div></div>' +
+            "</div>";
+        }
+        function showFile(title, text, printable) {
+          showModal('<h3 id="m-title">' + esc(title) + '</h3><textarea id="m-text" readonly aria-label="' + esc(title) + '">' + esc(text) + '</textarea><div class="links"><button class="btn" type="button" id="copy">Copy</button>' + (printable ? '<button class="btn" type="button" id="print-one">Print</button>' : "") + '<span class="fineprint" id="copied" aria-live="polite"></span></div>');
+        }
+        function printTexts(texts) {
+          $("print-area").innerHTML = texts.map(function (t) { return "<pre>" + esc(t) + "</pre>"; }).join("");
+          window.print();
+        }
+        function showModal(html) {
+          $("m-body").innerHTML = html;
+          var m = $("modal");
+          if (!m.open) m.showModal();
+        }
+        function parseCSV(t) {
+          var rows = [], r = [], f = "", q = false;
+          t = t.replace(/^\uFEFF/, "");
+          for (var i = 0; i < t.length; i++) {
+            var ch = t[i];
+            if (q) { if (ch !== '"') f += ch; else if (t[i + 1] === '"') { f += '"'; i++; } else q = false; }
+            else if (ch === '"') q = true;
+            else if (ch === ",") { r.push(f); f = ""; }
+            else if (ch === "\n" || ch === "\r") { if (ch === "\r" && t[i + 1] === "\n") i++; r.push(f); rows.push(r); r = []; f = ""; }
+            else f += ch;
+          }
+          if (f || r.length) { r.push(f); rows.push(r); }
+          return rows.filter(function (x) { return x.join("").trim(); });
+        }
+        function loadCSV(text) {
+          var rows = parseCSV(text), errs = [], out = [], seen = {};
+          if (!rows.length) return { errs: ["The CSV is empty."], n: 0 };
+          var head = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+          var miss = COLS.filter(function (c) { return head.indexOf(c) < 0; });
+          if (miss.length) return { errs: ["Header row is missing: " + miss.join(", ") + ". Use the template's header row."], n: 0 };
+          rows.slice(1).forEach(function (r, n) {
+            var v = {}, bad = [], amt = {};
+            COLS.forEach(function (c) { v[c] = (r[head.indexOf(c)] || "").trim(); });
+            var st = STATES.filter(function (s) { return s.toLowerCase() === v.state.toLowerCase(); })[0];
+            var g = v.gender.toUpperCase(), sk = SKILL[v.skill.toLowerCase().replace(/\s+/g, "-")];
+            if (!v.emp_id) bad.push("emp_id is empty"); else if (seen[v.emp_id]) bad.push("duplicate emp_id");
+            if (!v.name) bad.push("name is empty");
+            if (!st) bad.push('unknown state "' + v.state + '"');
+            if (g !== "M" && g !== "F") bad.push('gender "' + v.gender + '" must be M or F');
+            if (["1", "2", "3"].indexOf(v.zone) < 0) bad.push('zone "' + v.zone + '" must be 1, 2 or 3');
+            if (!sk) bad.push('unknown skill "' + v.skill + '"');
+            NUMS.forEach(function (c) { var s = v[c].replace(/[₹,\s]/g, ""), x = s === "" ? 0 : Number(s); if (!isFinite(x) || x < 0) bad.push(c + ' "' + v[c] + '" is not a number'); amt[c] = x; });
+            if (bad.length) return errs.push("Row " + (n + 2) + (v.emp_id ? " (" + v.emp_id + ")" : "") + ": " + bad.join("; "));
+            seen[v.emp_id] = 1;
+            out.push(Object.assign({ id: v.emp_id, name: v.name, gender: g, state: st, zone: "Zone " + v.zone, skill: sk, uan: v.uan, ip: v.esic_ip }, amt));
+          });
+          if (out.length) setData(out, "uploaded"); else errs.push("No valid rows, so the current data is unchanged.");
+          return { errs: errs, n: out.length };
+        }
+        function msgHTML(r) {
+          if (!r.errs.length) return '<p class="fineprint">Loaded ' + r.n + " employees. All checks re-ran.</p>";
+          return '<div class="aside x-errs" role="alert"><h3>' + (r.n ? r.n + " employees loaded · " + r.errs.length + " row" + (r.errs.length > 1 ? "s" : "") + " skipped" : "Nothing loaded") + "</h3><ul>" + r.errs.map(function (e) { return "<li>" + esc(e) + "</li>"; }).join("") + "</ul></div>";
+        }
+        function setData(rows, kind) {
+          EMP = rows; DATA = kind; audit = [];
+          $("data-chip").textContent = "Data: " + kind + " (" + rows.length + " employees)";
+          runChecks();
+        }
+        function showTemplate() {
+          var url = URL.createObjectURL(new Blob([TEMPLATE + "\n"], { type: "text/csv" }));
+          showModal('<h3 id="m-title">Payroll CSV template</h3><p>One row per employee. Replace the three sample rows, save as .csv, then upload.</p>' +
+            '<textarea class="x-short" id="m-text" readonly aria-label="CSV template">' + esc(TEMPLATE) + '</textarea><div class="links"><button class="btn" type="button" id="copy">Copy</button><a class="btn" href="' + url + '" download="teraminds-payroll-template.csv">Download .csv</a><span class="fineprint" id="copied" aria-live="polite"></span></div>' +
+            '<p class="head__eyebrow">Field guide</p><ul class="x-list"><li><b>state</b>: Haryana, Maharashtra or Karnataka</li><li><b>zone</b>: 1, 2 or 3 (this prototype applies Zone 1 minimum wages; Haryana has one rate)</li><li><b>skill</b>: unskilled, semi-skilled, skilled or highly-skilled</li><li><b>gender</b>: M or F</li><li><b>uan</b>, <b>esic_ip</b>: leave blank if none</li><li><b>basic</b> to <b>pt_deducted</b>: monthly amounts in ₹, numbers only; blank counts as 0</li><li><b>*_deducted</b>: the employee share actually deducted this month</li></ul>');
+        }
+        function showPaste() {
+          showModal('<h3 id="m-title">Paste CSV</h3><p>Paste rows with the template header. Nothing leaves your browser.</p><textarea id="paste-text" aria-label="CSV text" placeholder="' + esc(COLS.join(",")) + '"></textarea><div class="links"><button class="btn" type="button" id="load-paste">Load data</button></div><div id="paste-msg" aria-live="polite"></div>');
+        }
+        function reportHTML(company) {
+          var o = open(), bad = {};
+          o.forEach(function (f) { bad[f.e.id] = 1; });
+          var clean = EMP.length - Object.keys(bad).length;
+          var by = function (list, key) { return '<div class="breakdown"><dl>' + list.map(function (x) { var m = o.filter(function (f) { return key(f) === x; }); return row(x, m.length + " open", sum(m, risk)); }).join("") + "</dl></div>"; };
+          return '<div class="x-rep"><div><p class="head__eyebrow x-co">' + company + "</p><h2>Labour Compliance Self-Assessment — " + MONTH + '</h2><p class="fineprint">Prepared ' + new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) + " · " + EMP.length + " employees · " + DATA + " data</p></div>" +
+            '<section class="stats">' + stat(Math.round(clean / EMP.length * 100) + "%", "Compliance score · " + clean + " of " + EMP.length + " clean") + stat(inr(Math.round(sum(o, risk))), "Money at risk") + "</section>" +
+            '<section class="stats">' + ["Critical", "High", "Medium"].map(function (s) { return stat(o.filter(function (f) { return f.rule.sev === s; }).length, s); }).join("") + stat(audit.length, "Resolved") + "</section>" +
+            '<div><p class="head__eyebrow">Money at risk</p><div class="breakdown">' + riskDL(o) + "</div></div>" +
+            '<div class="x-pair"><div><p class="head__eyebrow">By area</p>' + by(AREAS, function (f) { return f.rule.area; }) + '</div><div><p class="head__eyebrow">By state</p>' + by(STATES, function (f) { return f.e.state; }) + "</div></div>" +
+            '<div class="table-wrap"><table><caption>All findings, worst first</caption><thead><tr><th scope="col">Employee</th><th scope="col">Finding</th><th scope="col">Severity</th><th scope="col">Exposure</th><th scope="col">Status</th><th scope="col">Citation</th></tr></thead><tbody>' +
+            (findings.length ? findings.map(function (f) {
+              return '<tr><th scope="row">' + esc(f.e.name) + "<small>" + esc(f.e.id) + " · " + f.e.state + '</small></th><td data-label="Finding">' + f.rule.name + "<small>" + esc(f.text) + '</small></td><td data-label="Severity">' + f.rule.sev + '</td><td class="num" data-label="Exposure">' + inr(Math.round(risk(f))) + '</td><td data-label="Status">' + (f.resolved ? "Resolved" : "Open") + '</td><td class="muted" data-label="Citation">' + esc(f.rule.src) + "</td></tr>";
+            }).join("") : '<tr><td colspan="6">No findings.</td></tr>') + "</tbody></table></div>" +
+            '<div class="aside"><h3>Limited prototype</h3><p class="fineprint">Covers Haryana, Maharashtra and Karnataka, and checks PF, ESI, minimum wage, the 50% wage rule and professional tax. Figures are illustrative; verify every rate before filing. The full platform adds all 36 states and UTs, statutory registers, remittance files, reconciliation, rule-watch and HRMS connectors.</p></div>' +
+            '<p class="fineprint">Powered by Teraminds · prototype</p></div>';
+        }
+        function showReport() {
+          showModal('<h3 id="m-title">Compliance report</h3><label class="x-field">Company name <input id="co" type="text" value="' + esc(COMPANY) + '" /></label><div class="links"><button class="btn" type="button" id="print-rep">Print / Save as PDF</button></div>' + reportHTML(esc(COMPANY)));
+        }
+        function go(tabId) {
+          document.querySelectorAll(".x-tabs button").forEach(function (b) {
+            var on = b.id === tabId;
+            b.setAttribute("aria-selected", on);
+            $(b.getAttribute("aria-controls")).hidden = !on;
+          });
+          window.scrollTo(0, 0);
+        }
+
+        document.addEventListener("click", function (ev) {
+          var t = ev.target.closest("button, tr.x-row");
+          if (!t) return;
+          if (t.getAttribute("role") === "tab") return go(t.id);
+          if (t.dataset.go) { if ($("modal").open) $("modal").close(); return go(t.dataset.go); }
+          if (t.classList.contains("x-row")) return openDetail(+t.dataset.i);
+          if (t.id === "resolve") return resolve(+t.dataset.i);
+          if (t.id === "m-close") return $("modal").close();
+          if (t.id === "rerun") return runChecks();
+          if (t.dataset.file === "ecr") return showFile("EPF ECR · " + MONTH, ecrRows().join("\n"));
+          if (t.dataset.file === "esic") return showFile("ESIC monthly contribution · " + MONTH, esicRows().join("\n"));
+          if (t.dataset.file === "slip") { var e = EMP.filter(function (x) { return x.id === $("slip-emp").value; })[0]; return showFile("Form V · " + e.name, formV(e), true); }
+          if (t.id === "print-one") return printTexts([$("m-text").value]);
+          if (t.id === "print-all") return printTexts(EMP.map(formV));
+          if (t.id === "tpl") return showTemplate();
+          if (t.id === "pick") { $("load-msg").innerHTML = '<p class="fineprint">Choose a .csv file. It is read in your browser and never uploaded.</p>'; return $("csv-file").click(); }
+          if (t.id === "paste") return showPaste();
+          if (t.id === "report") return showReport();
+          if (t.id === "demo") { setData(DEMO, "demo"); $("load-msg").innerHTML = '<p class="fineprint">Demo data reloaded: 12 employees.</p>'; return; }
+          if (t.id === "load-paste") { var res = loadCSV($("paste-text").value); if (!res.n) { $("paste-msg").innerHTML = msgHTML(res); return; } $("modal").close(); $("load-msg").innerHTML = msgHTML(res); return; }
+          if (t.id === "print-rep") { $("print-area").innerHTML = reportHTML(esc(COMPANY)); return window.print(); }
+          if (t.id === "copy") {
+            var ta = $("m-text"), done = function () { $("copied").textContent = "Copied"; };
+            ta.select();
+            if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(done, function () { try { document.execCommand("copy"); done(); } catch (x) { $("copied").textContent = "Select all and copy manually"; } });
+            else { try { document.execCommand("copy"); done(); } catch (x) {} }
+          }
+        });
+        $("csv-file").addEventListener("change", function () {
+          var file = this.files[0], input = this;
+          if (!file) return;
+          var fr = new FileReader();
+          fr.onload = function () { $("load-msg").innerHTML = msgHTML(loadCSV(String(fr.result))); input.value = ""; };
+          fr.onerror = function () { $("load-msg").innerHTML = msgHTML({ errs: ["Could not read the file."], n: 0 }); };
+          fr.readAsText(file);
+        });
+        document.addEventListener("input", function (ev) {
+          if (ev.target.id !== "co") return;
+          COMPANY = ev.target.value.trim() || "Your Company";
+          document.querySelector("#m-body .x-co").textContent = COMPANY;
+        });
+        document.addEventListener("keydown", function (ev) {
+          var r = ev.target.closest && ev.target.closest("tr.x-row");
+          if (r && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); openDetail(+r.dataset.i); }
+          var tabs = [].slice.call(document.querySelectorAll(".x-tabs button")), k = tabs.indexOf(ev.target);
+          if (k > -1 && (ev.key === "ArrowRight" || ev.key === "ArrowLeft")) { var n = tabs[(k + (ev.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); go(n.id); }
+        });
+
+        $("r-body").innerHTML = RULES.map(function (r) {
+          return '<tr><th scope="row">' + r.name + "<small>" + r.area + '</small></th><td data-label="What it checks">' + esc(r.what) + '</td><td data-label="Severity">' + r.sev + '</td><td data-label="Effective" class="rowhead">' + r.eff + '</td><td class="muted" data-label="Source">' + esc(r.src) + "</td></tr>";
+        }).join("");
+        $("mw-body").innerHTML = STATES.map(function (s) {
+          var m = MW[s], c = function (k) { return m.rates[k] ? inr(m.rates[k], m.rates[k] % 1 ? 2 : 0) : "—"; };
+          return '<tr><th scope="row">' + m.label + "<small>w.e.f. " + m.eff + " · " + esc(m.src) + '</small></th><td class="num">' + c("Unskilled") + '</td><td class="num">' + c("Semi-skilled") + '</td><td class="num">' + c("Skilled") + '</td><td class="num">' + c("Highly skilled") + "</td></tr>";
+        }).join("");
+
+        runChecks();
+      })();
+    </script>
+  </body>
+</html>

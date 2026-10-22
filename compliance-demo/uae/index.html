@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teraminds Compliance Agent — UAE prototype</title>
+<meta name="description" content="Agentic UAE labour-law compliance officer: WPS, end-of-service gratuity and Emiratisation checks with human approval gates.">
+<style>
+:root{--bg:#0f1020;--card:#181a33;--ink:#eef0ff;--mute:#a7abd3;--acc:#9b5cff;--acc2:#e05bbd;--crit:#ff5c7a;--high:#ffa94d;--med:#ffd43b;--ok:#51cf66;--line:#2a2d52}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:28px 20px 18px;background:linear-gradient(120deg,#2b1b6b,#6a2a8f 60%,#a8328f)}
+header h1{margin:0 0 6px;font-size:26px}header p{margin:0;color:#e3dcff;max-width:820px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 18px}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+nav button,.btn{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font:inherit;cursor:pointer}
+nav button.on,.btn.pri{background:linear-gradient(90deg,var(--acc),var(--acc2));border-color:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.stat b{display:block;font-size:26px}.stat span{color:var(--mute);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mute);font-weight:600}
+.sev{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;color:#111}
+.Critical{background:var(--crit)}.High{background:var(--high)}.Medium{background:var(--med)}.Info{background:#74c0fc}.OK{background:var(--ok)}
+.mute{color:var(--mute)}small{color:var(--mute)}
+.steps{display:flex;gap:8px;flex-wrap:wrap}.step{flex:1;min-width:150px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#14162c}
+.step.done{border-color:var(--ok)}.step.wait{border-color:var(--high)}.step.block{border-color:var(--crit)}
+textarea{width:100%;min-height:120px;background:#0c0d1b;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:12px ui-monospace,monospace}
+pre{white-space:pre-wrap;background:#0c0d1b;border:1px solid var(--line);border-radius:10px;padding:10px;font:12px ui-monospace,monospace;max-height:280px;overflow:auto}
+label{font-size:13px;color:var(--mute)}input{background:#0c0d1b;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:110px}
+a{color:#c9a8ff}footer{padding:24px 0 40px;color:var(--mute);font-size:12.5px}
+@media print{body{background:#fff;color:#000}header,nav,.noprint{display:none}.card{border-color:#ccc;background:#fff}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Teraminds Compliance Agent · UAE</h1>
+<p>An AI compliance officer for UAE private-sector employers. It checks every payroll run against the Wage Protection System, end-of-service gratuity and Emiratisation rules, prices the money at risk, drafts the fixes, and waits for a human to approve before anything is filed. Prototype for the Dubai Chamber Create AI Agents Championship. <a href="../" style="color:#fff">India module →</a></p>
+</div></header>
+<div class="wrap">
+<nav id="tabs">
+<button data-t="dash" class="on">Dashboard</button><button data-t="find">Findings</button><button data-t="agent">Agent run</button><button data-t="data">Your data</button><button data-t="rules">Rules</button>
+</nav>
+
+<section id="dash">
+<div class="card"><b id="co-name"></b> <span class="mute" id="co-meta"></span></div>
+<div class="grid">
+<div class="card stat"><b id="s-score"></b><span>Compliance score (checks passed)</span></div>
+<div class="card stat"><b id="s-risk"></b><span>Money at risk (AED)</span></div>
+<div class="card stat"><b id="s-wps"></b><span>Wages paid on time via WPS (85% needed)</span></div>
+<div class="card stat"><b id="s-emi"></b><span>Emirati skilled roles vs target</span></div>
+<div class="card stat"><b id="s-grat"></b><span>Accrued gratuity liability (AED)</span></div>
+</div>
+<div class="card"><b>Severity</b><div id="sevbar" class="grid" style="margin-top:8px"></div></div>
+</section>
+
+<section id="find" hidden>
+<div class="card"><table><thead><tr><th>Severity</th><th>Area</th><th>Who</th><th>Finding</th><th>AED at risk</th><th>Rule</th></tr></thead><tbody id="f-body"></tbody></table></div>
+</section>
+
+<section id="agent" hidden>
+<div class="card"><b>Monthly cycle, gated</b><p class="mute">The agent runs each step itself. Rules are deterministic code with citations; the language model only explains and drafts. Anything that leaves the company (a WPS salary file, a settlement) stops for a named human to approve.</p>
+<div class="steps" id="steps"></div></div>
+<div class="card"><b>Agent's briefing to the HR manager</b><pre id="brief"></pre></div>
+<div class="card"><b>WPS salary file (SIF draft)</b><p class="mute" id="sif-note"></p>
+<button class="btn pri" id="approve">Approve and release SIF</button> <button class="btn" id="dl-sif">Download draft</button>
+<pre id="sif"></pre></div>
+<div class="card"><b>Audit trail</b><pre id="audit"></pre></div>
+</section>
+
+<section id="data" hidden>
+<div class="card"><b>Company</b><br>
+<label>Total employees <input id="c-total" type="number"></label>
+<label>Skilled roles <input id="c-skilled" type="number"></label>
+<label>Emiratisation target % (end 2026) <input id="c-target" type="number" step="0.5"></label>
+<label>Payroll month <input id="c-month" type="month" style="width:150px"></label></div>
+<div class="card"><b>Employees (CSV)</b> <small>Stays in your browser. Columns: id,name,nationality,skilled,basic_aed,total_aed,join_date,unpaid_absence_days,paid_aed,paid_date,last_day,gratuity_paid_aed</small>
+<textarea id="csv"></textarea>
+<button class="btn pri" id="run">Run the checks</button> <button class="btn" id="reset">Reset demo data</button> <button class="btn" id="tpl">Download template</button> <span id="msg" class="mute"></span></div>
+</section>
+
+<section id="rules" hidden>
+<div class="card"><table><thead><tr><th>Check</th><th>What the agent tests</th><th>Source</th></tr></thead><tbody>
+<tr><td>WPS due date</td><td>Last month's wages reach the worker by the 1st of the next Gregorian month. Later is a delay.</td><td>Ministerial Resolution No. 0340 of 2026, Art. 1 (from 1 Jun 2026)</td></tr>
+<tr><td>WPS 85% threshold</td><td>Establishment compliant if ≥85% of total wages due are transferred on time; a worker counts as paid at ≥85% with a lawful reason for the rest. The balance is still owed.</td><td>MR 0340/2026; MoHRE news 4 Jun 2026</td></tr>
+<tr><td>Gratuity</td><td>Foreign full-time workers with ≥1 year: 21 days' basic wage per year for years 1–5, 30 days after, pro-rata for part years, capped at 2 years' wage; unpaid absence excluded. Daily wage = basic ÷ 30 (common practice). Emiratis are covered by pension law instead.</td><td>Federal Decree-Law 33 of 2021, Art. 51</td></tr>
+<tr><td>Final settlement</td><td>Gratuity and dues paid to a leaver within 14 days of the last day.</td><td>FDL 33/2021, Art. 53</td></tr>
+<tr><td>Emiratisation (50+ staff)</td><td>+2% Emiratis in skilled roles per year (1% by 30 Jun, 1% by 31 Dec 2026). Shortfall priced at AED 10,000 per missing role per month (H1 2026 rate).</td><td>MoHRE, 7 May and 22 Jun 2026</td></tr>
+<tr><td>Emiratisation (20–49 staff)</td><td>Firms in 14 named sectors must employ at least one UAE national.</td><td>MoHRE Emiratisation targets guidance</td></tr>
+</tbody></table><p class="mute">Prototype. Figures are estimates for a self-check, not legal advice. Confirm targets on the MoHRE portal and file formats with your WPS agent bank.</p></div>
+</section>
+
+<footer>Teraminds Talent AI · teraminds.si · Demo data is fictional. Built for the Create AI Agents Championship 2026–27 (Best Business AI Agent).</footer>
+</div>
+
+<script>
+const DEMO_CO={name:"Al Noor Logistics LLC (fictional)",total:62,skilled:48,target:10,month:"2026-09"};
+const DEMO_CSV=`id,name,nationality,skilled,basic_aed,total_aed,join_date,unpaid_absence_days,paid_aed,paid_date,last_day,gratuity_paid_aed
+E01,Ahmed Al Mansoori,UAE,Y,18000,30000,2023-03-01,0,30000,2026-09-30,,
+E02,Fatima Al Hammadi,UAE,Y,16000,26000,2024-06-15,0,26000,2026-09-30,,
+E03,Mariam Al Ketbi,UAE,Y,15000,24000,2025-01-10,0,24000,2026-09-30,,
+E04,Rahul Menon,India,Y,9000,15000,2019-04-01,0,15000,2026-09-30,,
+E05,Grace Okafor,Nigeria,Y,8000,13000,2021-08-20,0,13000,2026-10-04,,
+E06,Imran Qureshi,Pakistan,N,2200,3500,2018-02-11,10,2800,2026-09-30,,
+E07,Joseph Mathew,India,N,2000,3200,2022-11-05,0,3200,2026-09-30,,
+E08,Ana Santos,Philippines,Y,7000,11500,2016-07-01,0,11500,2026-09-30,2026-09-30,0
+E09,Li Wei,China,Y,10000,16000,2024-09-01,0,16000,2026-09-30,,
+E10,Omar Haddad,Jordan,Y,12000,20000,2012-05-15,0,20000,2026-09-30,2026-09-15,200000
+E11,Sunil Perera,Sri Lanka,N,1800,2900,2025-12-01,0,2900,2026-10-06,,
+E12,Priya Nair,India,Y,8500,14000,2020-01-12,0,14000,2026-09-30,,`;
+let CO={...DEMO_CO},EMP=[],FIND=[],LOG=[],approved=false,checksRun=0,checksPass=0;
+const $=id=>document.getElementById(id);const fmt=n=>Math.round(n).toLocaleString("en-AE");
+const SEVR={Critical:0,High:1,Medium:2,Info:3};
+function parse(t){const L=t.trim().split(/\r?\n/);const h=L.shift().split(",").map(s=>s.trim());return L.filter(x=>x.trim()).map(l=>{const c=l.split(",");const o={};h.forEach((k,i)=>o[k]=(c[i]||"").trim());["basic_aed","total_aed","unpaid_absence_days","paid_aed","gratuity_paid_aed"].forEach(k=>o[k]=parseFloat(o[k])||0);return o})}
+function yrs(a,b,abs){return Math.max(0,((new Date(b)-new Date(a))/864e5-abs)/365)}
+function gratuity(e,asOf){if(e.nationality.toUpperCase()==="UAE")return 0;const y=yrs(e.join_date,asOf,e.unpaid_absence_days);if(y<1)return 0;const d=e.basic_aed/30;let g=Math.min(y,5)*21*d+Math.max(0,y-5)*30*d;return Math.min(g,24*e.basic_aed)}
+function add(sev,area,who,text,aed,rule){FIND.push({sev,area,who,text,aed,rule})}
+function chk(ok){checksRun++;if(ok)checksPass++;return ok}
+function run(){FIND=[];checksRun=0;checksPass=0;approved=false;
+const [Y,M]=CO.month.split("-").map(Number);const due=new Date(Date.UTC(Y,M,1));const monthEnd=new Date(Date.UTC(Y,M,0)).toISOString().slice(0,10);
+let dueTot=0,onTime=0;
+EMP.forEach(e=>{dueTot+=e.total_aed;const pd=new Date(e.paid_date+"T00:00:00Z");const late=!e.paid_date||pd>due;if(!late)onTime+=Math.min(e.paid_aed,e.total_aed);
+ if(!chk(!late))add("Critical","WPS",e.name,`Wages for ${CO.month} paid ${e.paid_date||"not yet"}; due by ${due.toISOString().slice(0,10)}.`,e.total_aed,"MR 0340/2026 Art. 1");
+ const r=e.paid_aed/e.total_aed;
+ if(!chk(r>=1)){if(r<0.85)add("Critical","WPS",e.name,`Only ${Math.round(r*100)}% of wage paid; below the 85% line, so the worker counts as unpaid.`,e.total_aed-e.paid_aed,"MR 0340/2026");else add("Medium","WPS",e.name,`${Math.round(r*100)}% paid. Compliant for WPS only with a lawful documented deduction; the AED ${fmt(e.total_aed-e.paid_aed)} balance is still owed.`,e.total_aed-e.paid_aed,"MR 0340/2026; FDL 33/2021 Art. 25")}
+ if(e.last_day){const g=gratuity(e,e.last_day);const deadline=new Date(new Date(e.last_day).getTime()+14*864e5);const now=new Date(monthEnd);
+  if(!chk(e.gratuity_paid_aed+1>=g)){const sev=now>deadline?"Critical":"High";add(sev,"Gratuity",e.name,`Leaver on ${e.last_day}. Gratuity due AED ${fmt(g)}, paid AED ${fmt(e.gratuity_paid_aed)}. Settle within 14 days (by ${deadline.toISOString().slice(0,10)}).`,g-e.gratuity_paid_aed,"FDL 33/2021 Art. 51, 53")}
+  if(e.gratuity_paid_aed>g+1)add("Info","Gratuity",e.name,`Paid AED ${fmt(e.gratuity_paid_aed)} against a computed AED ${fmt(g)} under Art. 51. Check whether the excess was intended.`,0,"FDL 33/2021 Art. 51(6)")}
+ if(e.nationality.toUpperCase()!=="UAE"&&e.basic_aed/e.total_aed<0.5)add("Info","Gratuity",e.name,`Basic is ${Math.round(e.basic_aed/e.total_aed*100)}% of total pay. Lawful, but gratuity is calculated on basic, so expect disputes. Make sure the contract states basic clearly.`,0,"FDL 33/2021 Art. 51")});
+const share=dueTot?onTime/dueTot:1;if(!chk(share>=0.85))add("Critical","WPS","Establishment",`${Math.round(share*100)}% of total wages transferred on time; 85% needed. MoHRE escalation starts the day after the due date.`,dueTot-onTime,"MR 0340/2026");
+const emi=EMP.filter(e=>e.nationality.toUpperCase()==="UAE"&&e.skilled==="Y").length;let need=0,gap=0;
+if(CO.total>=50){need=Math.floor(CO.skilled*CO.target/100);gap=Math.max(0,need-emi);if(!chk(gap===0))add("High","Emiratisation","Establishment",`${emi} Emiratis in skilled roles; ${need} needed for ${CO.target}% of ${CO.skilled} skilled roles. ${gap} short at AED 10,000 per role per month (6 months shown).`,gap*10000*6,"MoHRE 22 Jun 2026")}
+else if(CO.total>=20){if(!chk(EMP.some(e=>e.nationality.toUpperCase()==="UAE")))add("High","Emiratisation","Establishment","No UAE national employed; firms of 20–49 in the 14 targeted sectors must employ at least one.",0,"MoHRE guidance")}
+FIND.sort((a,b)=>SEVR[a.sev]-SEVR[b.sev]||b.aed-a.aed);
+const accrued=EMP.filter(e=>!e.last_day).reduce((s,e)=>s+gratuity(e,monthEnd),0);
+render({share,emi,need,accrued,due});}
+function render(x){$("co-name").textContent=CO.name;$("co-meta").textContent=` · ${CO.total} employees · ${CO.skilled} skilled roles · payroll ${CO.month}`;
+$("s-score").textContent=Math.round(checksPass/checksRun*100)+"%";$("s-risk").textContent=fmt(FIND.reduce((s,f)=>s+f.aed,0));
+$("s-wps").textContent=Math.round(x.share*100)+"%";$("s-emi").textContent=`${x.emi} / ${x.need||"—"}`;$("s-grat").textContent=fmt(x.accrued);
+const c={Critical:0,High:0,Medium:0,Info:0};FIND.forEach(f=>c[f.sev]++);$("sevbar").innerHTML=Object.keys(c).map(k=>`<div><span class="sev ${k}">${k}</span> <b>${c[k]}</b></div>`).join("");
+$("f-body").innerHTML=FIND.map(f=>`<tr><td><span class="sev ${f.sev}">${f.sev}</span></td><td>${f.area}</td><td>${f.who}</td><td>${f.text}</td><td>${f.aed?fmt(f.aed):"—"}</td><td><small>${f.rule}</small></td></tr>`).join("")||`<tr><td colspan=6><span class="sev OK">OK</span> No findings.</td></tr>`;
+const crit=FIND.filter(f=>f.sev==="Critical");
+const st=[["Ingest payroll","done",`${EMP.length} employees read`],["Run checks","done",`${checksRun} checks, ${checksRun-checksPass} failed`],["Explain & draft fixes","done",`${FIND.length} findings with citations`],["Pre-remittance gate",crit.length?"block":"done",crit.length?`${crit.length} Critical open`:"clear"],["Human approval",approved?"done":"wait",approved?"approved":"waiting for HR manager"],["Release SIF to bank",approved?"done":"wait",approved?"released (demo)":"locked"]];
+$("steps").innerHTML=st.map((s,i)=>`<div class="step ${s[1]}"><small>Step ${i+1}</small><br><b>${s[0]}</b><br><small>${s[2]}</small></div>`).join("");
+const top=FIND.slice(0,4).map((f,i)=>`${i+1}. [${f.sev}] ${f.who}: ${f.text}`).join("\n");
+$("brief").textContent=`Hi, here is ${CO.month} payroll for ${CO.name}.\n\nScore ${Math.round(checksPass/checksRun*100)}%. Money at risk about AED ${fmt(FIND.reduce((s,f)=>s+f.aed,0))}.\n\nFix first:\n${top||"Nothing. All checks passed."}\n\n${crit.length?`I've held the WPS salary file: ${crit.length} Critical finding(s) must be fixed or accepted by you first.`:"The WPS salary file is ready for your approval."}\nI haven't sent anything to the bank, MoHRE or any employee.`;
+$("sif-note").textContent=crit.length?"Locked: resolve Critical findings, or approve to accept them on record.":"Ready. Approval releases it. In this demo nothing leaves your browser.";
+const p=CO.month+"-01",[Y,M]=CO.month.split("-").map(Number),pe=new Date(Date.UTC(Y,M,0)).toISOString().slice(0,10);
+$("sif").textContent=EMP.map(e=>["EDR",e.id,"AGENTRC00",`AE07033XXXXXXXX${e.id.slice(1)}`,p,pe,"30",(e.total_aed).toFixed(2),"0.00",e.unpaid_absence_days].join(",")).join("\n")+`\nSCR,EMPLOYERID,AGENTRC00,${new Date().toISOString().slice(0,10)},0000,${CO.month.replace("-","")},${EMP.length},${EMP.reduce((s,e)=>s+e.total_aed,0).toFixed(2)},AED,TERAMINDS-DEMO\n\n(Simplified layout. Field order and IDs follow your agent bank's WPS spec in production.)`;
+$("approve").textContent=approved?"Approved ✓":"Approve and release SIF";$("approve").disabled=approved;
+$("audit").textContent=LOG.join("\n");}
+function log(m){LOG.push(new Date().toLocaleString()+"  "+m)}
+function load(){CO.total=+$("c-total").value;CO.skilled=+$("c-skilled").value;CO.target=+$("c-target").value;CO.month=$("c-month").value||CO.month;EMP=parse($("csv").value);log(`Agent: ingested ${EMP.length} employees for ${CO.month}`);run();log(`Agent: ran ${checksRun} checks, ${FIND.length} findings`);render(lastX())}
+function lastX(){const[Y,M]=CO.month.split("-").map(Number);let dueTot=0,on=0;const due=new Date(Date.UTC(Y,M,1));EMP.forEach(e=>{dueTot+=e.total_aed;if(e.paid_date&&new Date(e.paid_date+"T00:00:00Z")<=due)on+=Math.min(e.paid_aed,e.total_aed)});const me=new Date(Date.UTC(Y,M,0)).toISOString().slice(0,10);return{share:dueTot?on/dueTot:1,emi:EMP.filter(e=>e.nationality.toUpperCase()==="UAE"&&e.skilled==="Y").length,need:CO.total>=50?Math.floor(CO.skilled*CO.target/100):0,accrued:EMP.filter(e=>!e.last_day).reduce((s,e)=>s+gratuity(e,me),0)}}
+function fill(){$("c-total").value=CO.total;$("c-skilled").value=CO.skilled;$("c-target").value=CO.target;$("c-month").value=CO.month}
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");["dash","find","agent","data","rules"].forEach(t=>$(t).hidden=t!==b.dataset.t)});
+$("run").onclick=()=>{try{load();$("msg").textContent="Checked. See Dashboard."}catch(e){$("msg").textContent="Couldn't read that CSV: "+e.message}};
+$("reset").onclick=()=>{CO={...DEMO_CO};fill();$("csv").value=DEMO_CSV;load()};
+$("tpl").onclick=()=>dl("teraminds-uae-payroll-template.csv",DEMO_CSV.split("\n")[0]+"\n");
+$("dl-sif").onclick=()=>dl("wps-draft.sif",$("sif").textContent);
+$("approve").onclick=()=>{const n=prompt("Approver name (HR manager):");if(!n)return;approved=true;log(`Human: ${n} approved SIF release with ${FIND.filter(f=>f.sev==="Critical").length} Critical finding(s) on record`);log("Agent: SIF released (demo, nothing sent)");render(lastX())};
+function dl(n,t){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/plain"}));a.download=n;a.click()}
+fill();$("csv").value=DEMO_CSV;load();
+</script>
+</body>
+</html>
